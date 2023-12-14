@@ -1,0 +1,63 @@
+import pandas
+import numpy as np
+import math as m
+
+
+def dist3d(x, y, z):
+    return m.sqrt(x ** 2 + y ** 2 + z ** 2)
+
+
+def integral(x, y, z):
+    i1 = x * m.log(y + dist3d(x, y, z))
+    i2 = y * m.log(x + dist3d(x, y, z))
+    i3 = z * m.atan((x * y) / (z * dist3d(x, y, z)))
+    return i3 - i1 - i2
+
+
+df_NMT = pandas.read_excel('Path\\file.xlsx')
+df_DATA = pandas.read_excel('Path\\file.xlsx')
+
+size_DATA = int(np.size(df_DATA)/3)
+size_NMT = int(np.size(df_NMT)/3)
+terrain_correction = [0]*size_DATA
+density = 2.67      # [g/cm3]
+gravity = 6.67508 * 10 ** -11   # [m3/kg*s2]
+prismBase = 1000    # [m]
+
+for i in range(size_DATA):
+    longitude_NS = df_DATA.iat[i, 0]
+    latitude_EW = df_DATA.iat[i, 1]
+    height = df_DATA.iat[i, 2]
+
+    data_point = [longitude_NS, latitude_EW]
+    correction = 0
+
+    for j in range(size_NMT):
+        long_NMT_NS = df_NMT.iat[j, 0]
+        lat_NMT_EW = df_NMT.iat[j, 1]
+        height_NMT = df_NMT.iat[j, 2]
+
+        nmt_point = [long_NMT_NS, lat_NMT_EW]
+
+        if m.dist(data_point, nmt_point) <= 1200:
+            if height_NMT < height:
+                h1 = height_NMT
+                h2 = height
+            else:
+                h1 = height
+                h2 = height_NMT
+
+            x1 = abs(lat_NMT_EW - latitude_EW) - prismBase / 2
+            x2 = abs(lat_NMT_EW - latitude_EW) + prismBase / 2
+            y1 = abs(long_NMT_NS - longitude_NS) - prismBase / 2
+            y2 = abs(long_NMT_NS - longitude_NS) + prismBase / 2
+
+            terr_c = integral(x2, y2, h2) - integral(x1, y2, h2) - integral(x2, y1, h2) + integral(x1, y1, h2) - integral(x2, y2, h1) + integral(x1, y2, h1) + integral(x2, y1, h1) - integral(x1, y1, h1)
+            correction = correction + terr_c
+
+    terrain_correction[i] = correction
+
+terrain_correction = np.array(terrain_correction) * 0.001 * 1000000 * density * gravity
+terrain_correction = np.array(terrain_correction) * 100 * 1000
+
+print(terrain_correction)
